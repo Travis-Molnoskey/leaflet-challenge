@@ -17,16 +17,39 @@ var map = L.map("map", {
     layers: [lightmap]
 });
 
-d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson", function(response){
-    console.log(response.features)
-    var datapoints = response.features
-    console.log(datapoints)
+var legend = L.control({
+    position: "bottomright"
+});
 
+legend.onAdd = function() {
+    var div = L.DomUtil.create("div", "legend");
+    //found this and the legend styling online, thank god for google
+    div.innerHTML += '<i style="background: #00FF00"></i><span>0-1</span><br>';
+    div.innerHTML += '<i style="background: #66ff00"></i><span>1-2</span><br>';
+    div.innerHTML += '<i style="background: #ccff00"></i><span>2-3</span><br>';
+    div.innerHTML += '<i style="background: #FFCC00"></i><span>3-4</span><br>';
+    div.innerHTML += '<i style="background: #ff6600"></i><span>4-5</span><br>';
+    div.innerHTML += '<i style="background: #FF0000"></i><span>5+</span><br>';
+    
+    return div;
+};
+
+legend.addTo(map);
+
+d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson", function(response){
+    //console.log(response.features)
+    var datapoints = response.features
+    //console.log(datapoints)
+    
+    //define ordinal buckets for color categories
     var mags = [1,2,3,4,5,6]
     var circleColor = d3.scaleOrdinal().domain(mags)
     .range(["#00FF00","#66ff00","#ccff00","#FFCC00","#ff6600","#FF0000"]);
-    var circleSize = d3.scaleLinear().domain([2,10]).range([25000,250000]);
-    
+    //if circle then range [4000, 120000]
+    //if circleMarker then range [0,40]
+    var circleSize = d3.scaleLinear().domain([0,9]).range([4000,120000]);
+
+    //make function to return the magnitude in buckets for easy categories
     function returnMag(mag){
         if (mag < 1) {
             return 1;
@@ -42,17 +65,19 @@ d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geoj
             return 6;
         }
     };
-
-    //FF0000,FF3300,ff6600,ff9900,FFCC00,FFFF00,ccff00,99ff00,66ff00,33ff00,00FF00
-    //FF0000,ff6600,FFCC00,ccff00,66ff00,00FF00
-    //"#00FF00","#66ff00","#ccff00","#FFCC00","#ff6600","#FF0000"
+    //this fixes issue of giving negative radius for negative magnitude earthquakes
+    function returnSize(mag){
+        if (mag < 0.1){
+            return 0.1;
+        } else{
+            return mag;
+        }
+    }
 
     datapoints.forEach(function(earthquake){
-        //earthquake.properties.mag
         var color = circleColor(returnMag(earthquake.properties.mag))
-        console.log(color)
-        var size = circleSize(earthquake.properties.mag)
-        console.log(earthquake.properties.mag)
+        var size = circleSize(returnSize(earthquake.properties.mag))
+        console.log(size)
 
         var newCircle = L.circle([earthquake.geometry.coordinates[1],earthquake.geometry.coordinates[0]],{
             color: "black",
@@ -62,9 +87,8 @@ d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geoj
             radius: size
         }).addTo(map);
 
+        newCircle.bindTooltip(`Magnitude: ${earthquake.properties.mag}<br/>Lat:${earthquake.geometry.coordinates[1]}<br/>Long:${earthquake.geometry.coordinates[0]}`)
 
     });
-
-
 
 });
